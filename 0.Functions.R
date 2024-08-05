@@ -136,6 +136,55 @@ baseline_table_function <- function(baselinevars, df){ #feed baselinevars vector
 #\ 
 
 ########################################
+#----Transform/summarize function------#
+########################################
+
+# In this code we untansform the log2 transformed cytokine/crp data
+# And we summarize the values of interest into a table 
+
+transform_and_summarize <- function(df, log2_columns) {
+  # Initialize an empty list to store summary statistics
+  summary_list <- list()
+  
+  # Loop over each column name provided
+  for (col in log2_columns) {
+    
+    # Check if the column exists in the dataframe
+    if (col %in% names(df)) {
+      
+      # Transform back to original scale
+      original_values <- 2^df[[col]]
+      
+      # Calculate the desired quantiles
+      q1 <- quantile(original_values, 0.25, na.rm = TRUE)
+      median_val <- median(original_values, na.rm = TRUE)
+      q3 <- quantile(original_values, 0.75, na.rm = TRUE)
+      
+      # Create a summary data frame
+      summary_df <- data.frame(
+        Column = col,
+        First_Quartile = q1,
+        Median = median_val,
+        Third_Quartile = q3
+      )
+      
+      # Add the summary data frame to the list
+      summary_list[[col]] <- summary_df
+    } else {
+      warning(paste("Column", col, "not found in the dataframe."))
+    }
+  }
+  
+  # Combine all summary data frames into one
+  summary_table <- do.call(rbind, summary_list)
+  
+  # Return the combined summary table
+  return(summary_table)
+}
+
+#\
+
+########################################
 #------Summary of missing values-------#
 ########################################
 
