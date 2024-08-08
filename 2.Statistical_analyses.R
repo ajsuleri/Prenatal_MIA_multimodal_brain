@@ -1081,4 +1081,587 @@ l <- plot_model(lm12, type = "pred", terms = c("age_child_mri", "mia_index_avera
 
 ggarrange(i, j, k, l, labels = 'auto', ncol = 2, nrow = 2)
 
+#\
+
+# ========================================================== #
+##         Extra sensitivity analyses for revisions
+# ========================================================== #
+
+# ========================================================== #
+### Sensitivity analysis 1: lateralization effects global brain regions
+
+## Create vector of exposures 
+exposures_mia <- c('mia_index_average')
+exposures_crp <- c('hs_crp_average')
+
+## Create vector of outcomes
+df <- complete(df_final_imputed, 30)
+smri_outcomes_lat <- colnames(dplyr::select(df, starts_with("lh"), starts_with("rh"), starts_with("Left"), starts_with("Right")))
+
+## Create empty dataframes
+lat_results_smri_int_mia <- data.frame()
+lat_results_smri_int_crp <- data.frame()
+
+## Cytokine index 
+for (outcome in smri_outcomes_lat) {
+  
+  for (exposure in exposures_mia) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg_average +  BatchDay_average + (1| IDC)')  # interaction model
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[17, c(2,3, 6, 7, 8)]
+
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+
+    # Adding results to data frames
+    lat_results_smri_int_mia <- rbind(lat_results_smri_int_mia, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lat_results_smri_int_mia) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lat_results_smri_int_mia[, 1:5] <- round(lat_results_smri_int_mia[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lat_results_smri_int_mia <- add_fdr_pvalue(lat_results_smri_int_mia, 3)
+write_xlsx(lat_results_smri_int_mia, 'lat_results_smri_int_mia.xlsx')
+
+# Create table in word
+#library(rempsyc)
+#my_table <- nice_table(lat_results_smri_int_mia2)
+#print(my_table, preview = "docx")
+
+## C-reactive protein 
+for (outcome in smri_outcomes_lat) {
+  
+  for (exposure in exposures_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + gestage_plasma_average + (1| IDC)')  # interaction model
+
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[16, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    lat_results_smri_int_crp <- rbind(lat_results_smri_int_crp, interaction_model_output)
+ 
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lat_results_smri_int_crp) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lat_results_smri_int_crp[, 1:5] <- round(lat_results_smri_int_crp[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lat_results_smri_int_crp <- add_fdr_pvalue(lat_results_smri_int_crp, 3)
+write_xlsx(lat_results_smri_int_crp, 'lat_results_smri_int_crp.xlsx')
+
+#\
+
+# ========================================================== #
+### Sensitivity analysis 2: rerun main analysis, additionally adjusting for puberty
+combined_main_outcomes <- c(smri_outcomes, dti_outcomes, fmri_outcomes)
+
+## Create empty dataframes
+puberty_results_smri_int_mia <- data.frame()
+puberty_results_smri_int_crp <- data.frame()
+
+## Cytokine index 
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_mia) {
+  
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg_average +  BatchDay_average + puberty_score + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[18, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    puberty_results_smri_int_mia <- rbind(puberty_results_smri_int_mia, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(puberty_results_smri_int_mia) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+puberty_results_smri_int_mia[, 1:5] <- round(puberty_results_smri_int_mia[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+puberty_results_smri_int_mia <- add_fdr_pvalue(puberty_results_smri_int_mia, 3)
+write_xlsx(puberty_results_smri_int_mia, 'puberty_results_smri_int_mia.xlsx')
+
+## CRP
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + gestage_plasma_average + puberty_score + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[17, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    puberty_results_smri_int_crp <- rbind(puberty_results_smri_int_crp, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(puberty_results_smri_int_crp) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+puberty_results_smri_int_crp[, 1:5] <- round(puberty_results_smri_int_crp[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+puberty_results_smri_int_crp <- add_fdr_pvalue(puberty_results_smri_int_crp, 3)
+write_xlsx(puberty_results_smri_int_crp, 'puberty_results_smri_int_crp.xlsx')
+
+#\
+
+# ========================================================== #
+### Sensitivity analysis 3: rerun main analyses with more narrow time interval for cytokines
+
+## Create new exposure indices 
+# Transform mids object to long dataframe
+imp_long <- complete(df_final_imputed, action = 'long', include = T)
+
+# Select 4 week time frame during which most data is collected 
+# df <- complete(df_final_imputed, 30)
+# hist(df$gestage_plasma_g1)
+# hist(df$gestage_plasma_g2)
+
+imp_long_t1 <- subset(imp_long, gestage_plasma_g1 > 10 & gestage_plasma_g1 < 14)
+imp_long_t2 <- subset(imp_long, gestage_plasma_g2 > 18 & gestage_plasma_g2 < 22)
+
+# Convert back to mids 
+df_final_imputed_t1_narrow <- as.mids(imp_long_t1)
+df_final_imputed_t2_narrow <- as.mids(imp_long_t2)
+
+## Run analysis for cytokines - T1
+# Specify exposure
+exposures_t1_cytokines <- c('mia_index_t1')
+
+# Specify empty dataframe 
+narrow_results_cytokines_t1 <- data.frame()
+
+# Run model
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_t1_cytokines) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg1 +  BatchDayg1 + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed_t1_narrow, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[17, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    narrow_results_cytokines_t1 <- rbind(narrow_results_cytokines_t1, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(narrow_results_cytokines_t1) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+narrow_results_cytokines_t1[, 1:5] <- round(narrow_results_cytokines_t1[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+narrow_results_cytokines_t1 <- add_fdr_pvalue(narrow_results_cytokines_t1, 3)
+write_xlsx(narrow_results_cytokines_t1, 'narrow_results_cytokines_t1.xlsx')
+
+## Run analysis for cytokines - T2
+# Specify exposure
+exposures_t2_cytokines <- c('mia_index_t2')
+
+# Specify empty dataframe 
+narrow_results_cytokines_t2 <- data.frame()
+
+# Run model
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_t2_cytokines) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg2 +  BatchDayg2 + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed_t2_narrow, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[17, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    narrow_results_cytokines_t2 <- rbind(narrow_results_cytokines_t2, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(narrow_results_cytokines_t2) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+narrow_results_cytokines_t2[, 1:5] <- round(narrow_results_cytokines_t2[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+narrow_results_cytokines_t2 <- add_fdr_pvalue(narrow_results_cytokines_t2, 3)
+write_xlsx(narrow_results_cytokines_t2, 'narrow_results_cytokines_t2.xlsx')
+
+## Run analysis for CRP - T1 (error ... )
+# Specify exposure
+exposures_t1_crp <- c('HsCRPmgL_g1')
+
+# Specify empty dataframe 
+narrow_results_crp_t1 <- data.frame()
+
+# Run model
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_t1_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg1 + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed_t1_narrow, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[16, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    narrow_results_crp_t1 <- rbind(narrow_results_crp_t1, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(narrow_results_crp_t1) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+narrow_results_crp_t1[, 1:5] <- round(narrow_results_crp_t1[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+narrow_results_crp_t1 <- add_fdr_pvalue(narrow_results_crp_t1, 3)
+write_xlsx(narrow_results_crp_t1, 'narrow_results_crp_t1.xlsx')
+
+## Run analysis for CRP - T2
+# Specify exposure
+exposures_t2_crp <- c('HsCRPmgL_g2')
+
+# Specify empty dataframe 
+narrow_results_crp_t2 <- data.frame()
+
+# Run model
+for (outcome in combined_main_outcomes) {
+  for (exposure in exposures_t2_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg2 + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(df_final_imputed_t2_narrow, lmer(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[16, c(2, 3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    narrow_results_crp_t2 <- rbind(narrow_results_crp_t2, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(narrow_results_crp_t2) <- c("beta", "SE", "pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+narrow_results_crp_t2[, 1:5] <- round(narrow_results_crp_t2[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+narrow_results_crp_t2 <- add_fdr_pvalue(narrow_results_crp_t2, 3)
+write_xlsx(narrow_results_crp_t2, 'narrow_results_crp_t2.xlsx')
+
+# ========================================================== #
+### Sensitivity analysis 4: rerun main analysis with linear regressions at F9 and F13
+
+### Transform from long to wide format for linear regressions
+# Transform mids object to long dataframe
+imp_long <- complete(df_final_imputed, action = 'long', include = T)
+imp_long$timepoint <- as.factor(imp_long$timepoint)
+
+# Create timepoint specific dataframes 
+imp_long_f09 <- subset(imp_long, timepoint == 'f09')
+imp_long_f13 <- subset(imp_long, timepoint == 'f13')
+
+# Transform back to mids
+imp_df_f09 <- as.mids(imp_long_f09)
+imp_df_f13 <- as.mids(imp_long_f13)
+
+### Run linear regressions for f09
+# Create vector of exposures 
+exposures_mia <- c('mia_index_average')
+exposures_crp <- c('hs_crp_average')
+
+# Create empty dataframes
+lm_results_smri_mia_f09 <- data.frame()
+lm_results_smri_crp_f09 <- data.frame()
+
+## Cytokine index 
+for (outcome in combined_main_outcomes) {
+  
+  for (exposure in exposures_mia) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,') + age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg_average +  BatchDay_average')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    model <- summary(pool(with(imp_df_f09, lm(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[2, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    model$outcome <- outcome
+    model$exposure <- exposure
+    
+    # Adding results to data frames
+    lm_results_smri_mia_f09 <- rbind(lm_results_smri_mia_f09, model)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lm_results_smri_mia_f09) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lm_results_smri_mia_f09[, 1:5] <- round(lm_results_smri_mia_f09[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lm_results_smri_mia_f09 <- add_fdr_pvalue(lm_results_smri_mia_f09, 3)
+write_xlsx(lm_results_smri_mia_f09, 'lm_results_smri_mia_f09.xlsx')
+
+## C-reactive protein 
+for (outcome in combined_main_outcomes) {
+  
+  for (exposure in exposures_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,') + age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + gestage_plasma_average')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    model <- summary(pool(with(imp_df_f09, lm(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[2, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    model$outcome <- outcome
+    model$exposure <- exposure
+    
+    # Adding results to data frames
+    lm_results_smri_crp_f09 <- rbind(lm_results_smri_crp_f09, model)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lm_results_smri_crp_f09) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lm_results_smri_crp_f09[, 1:5] <- round(lm_results_smri_crp_f09[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lm_results_smri_crp_f09 <- add_fdr_pvalue(lm_results_smri_crp_f09, 3)
+write_xlsx(lm_results_smri_crp_f09, 'lm_results_smri_crp_f09.xlsx')
+
+#\ 
+
+### Run linear regressions for f13
+## Create empty dataframes
+lm_results_smri_mia_f13 <- data.frame()
+lm_results_smri_crp_f13 <- data.frame()
+
+## Cytokine index 
+for (outcome in combined_main_outcomes) {
+  
+  for (exposure in exposures_mia) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,') + age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg_average +  BatchDay_average')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    model <- summary(pool(with(imp_df_f13, lm(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[2, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    model$outcome <- outcome
+    model$exposure <- exposure
+    
+    # Adding results to data frames
+    lm_results_smri_mia_f13 <- rbind(lm_results_smri_mia_f13, model)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lm_results_smri_mia_f13) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lm_results_smri_mia_f13[, 1:5] <- round(lm_results_smri_mia_f13[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lm_results_smri_mia_f13 <- add_fdr_pvalue(lm_results_smri_mia_f13, 3)
+write_xlsx(lm_results_smri_mia_f13, 'lm_results_smri_mia_f13.xlsx')
+
+## C-reactive protein 
+for (outcome in combined_main_outcomes) {
+  
+  for (exposure in exposures_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,') + age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + gestage_plasma_average')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    model <- summary(pool(with(imp_df_f13, lm(as.formula(b), weights = ipw_weights))), conf.int = TRUE)[2, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    model$outcome <- outcome
+    model$exposure <- exposure
+    
+    # Adding results to data frames
+    lm_results_smri_crp_f13 <- rbind(lm_results_smri_crp_f13, model)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(lm_results_smri_crp_f13) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+lm_results_smri_crp_f13[, 1:5] <- round(lm_results_smri_crp_f13[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+lm_results_smri_crp_f13 <- add_fdr_pvalue(lm_results_smri_crp_f13, 3)
+write_xlsx(lm_results_smri_crp_f13, 'lm_results_smri_crp_f13.xlsx')
+
+# ========================================================== #
+### Sensitivity analysis 5: rerun main analysis with between Fc for all outcomes 
+# Load data 
+between_fc_f09 <- readRDS("fc_fMRI_f09.rds")
+col_names <- names(between_fc_f09)
+new_col_names <- c(col_names[1], paste0(col_names[-1], "_f09"))
+names(between_fc_f09) <- new_col_names
+#print(between_fc_f09)
+
+between_fc_f13 <- readRDS("fc_fMRI_f13.rds")
+col_names2 <- names(between_fc_f13)
+new_col_names2 <- c(col_names2[1], paste0(col_names2[-1], "_f13"))
+names(between_fc_f13) <- new_col_names2
+#print(between_fc_f13)
+
+between_fc_combined <- merge(between_fc_f09, between_fc_f13, by = 'IDC', all = T)
+
+df_long <- between_fc_combined %>% pivot_longer(-c(IDC), names_to = c('variable', 'timepoint'), values_to = c('value'), names_pattern = "(.*)_(.*)")
+df_long_ordered <- pivot_wider(df_long, names_from = c("variable"), values_from = c("value"))
+
+names(df_long_ordered) <- gsub("-", "_", names(df_long_ordered))
+#print(names(df_long_ordered))
+
+# Merge with other data
+# Transform to long datasets for MRI (smri + dti)
+imp.data_combined <- list()
+
+for (i in 0:30) {
+  imp.data <- complete(df_final_imputed, i)
+  reshape_imp.data <- merge(imp.data, df_long_ordered, by = 'IDC', all.x = T)
+  imp.data_combined[[i+1]] <- reshape_imp.data
+}
+
+reshape_imp_combined <- datalist2mids(imp.data_combined)
+
+# Define outcomes
+bt_fmri_outcomes <- colnames(dplyr::select(df_long_ordered, -c('IDC', 'timepoint')))
+
+# Define exposures
+exposures_mia <- c('mia_index_average')
+exposures_crp <- c('hs_crp_average')
+
+# Create empty dataframes
+fmri_extra_mia <- data.frame()
+fmri_extra_crp <- data.frame()
+
+# Run analysis for MIA
+for (outcome in bt_fmri_outcomes) {
+  
+  for (exposure in exposures_mia) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + GestagePLg_average + BatchDay_average + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(reshape_imp_combined, lmer(as.formula(b)))), conf.int = TRUE)[17, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    fmri_extra_mia <- rbind(fmri_extra_mia, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(fmri_extra_mia) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+fmri_extra_mia[, 1:5] <- round(fmri_extra_mia[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+fmri_extra_mia <- add_fdr_pvalue(fmri_extra_mia, 3)
+write_xlsx(fmri_extra_mia, 'fmri_extra_mia.xlsx')
+
+# Create table in word
+#library(rempsyc)
+#my_table <- nice_table(fmri_extra_mia)
+#print(my_table, preview = "docx")
+
+# Run analysis for CRP
+for (outcome in bt_fmri_outcomes) {
+  
+  for (exposure in exposures_crp) {
+    
+    # Model formulas
+    b <- paste0('scale(',outcome,') ~ scale(',exposure,')*age_child_mri + AGE_M_v2 + ETHNMv2 + mdrink_updated + SMOKE_ALL + GSI + GENDER + INCOME + PARITY + gestage_plasma_average + (1| IDC)')  
+    
+    # Calculating beta, confidence interval, and p-value for all models
+    interaction_model_output <- summary(pool(with(reshape_imp_combined, lmer(as.formula(b)))), conf.int = TRUE)[16, c(2,3, 6, 7, 8)]
+    
+    # Adding outcome and exposure information
+    interaction_model_output$outcome <- outcome
+    interaction_model_output$exposure <- exposure
+    
+    # Adding results to data frames
+    fmri_extra_crp <- rbind(fmri_extra_crp, interaction_model_output)
+  }
+}
+
+# Adding column names to created dataframes 
+colnames(fmri_extra_crp) <- c("beta", "SE" ,"pval","lowerCI", "upperCI", "Outcome", 'Exposure')
+
+# Clean up tables to 3 decimals
+fmri_extra_crp[, 1:5] <- round(fmri_extra_crp[, 1:5], digits = 3)
+
+# Apply FDR correction if needed and save data frames to Excel
+fmri_extra_crp <- add_fdr_pvalue(fmri_extra_crp, 3)
+write_xlsx(fmri_extra_crp, 'fmri_extra_crp.xlsx')
+
 #\ END OF SCRIPT
