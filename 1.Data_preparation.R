@@ -617,8 +617,64 @@ fmri_onescan_mia <- subset(df_descriptives, complete.cases(mia_index_average) & 
 # Drop columns we do not need
 full_df_cleaned <- dplyr::select(full_df, -c(18:19, 22:69, 77, 114))
 
+# Update: load and merge additional covariate for sensitivity analysis 
+puberty <- read.spss('puberty_data.sav', to.data.frame = T)
+puberty <- rename(puberty, 'IDC' = idc, 'puberty_score' = puberty)
+puberty <- dplyr::select(puberty, c('IDC', 'puberty_score'))
+puberty$IDC <- as.numeric(puberty$IDC)
+
+full_df_cleaned <- merge(full_df_cleaned, puberty, by = 'IDC', all.x = T)
+
+# Update: load and merge additional DK brain data for sensitivity analysis 
+f09_aparc <- readRDS('f09_freesurfer_v6_09dec2016_aparc_stats_pull06june2017.rds')
+f09_aparc <- rename(f09_aparc, 'IDC' = idc)
+f09_aparc <- dplyr::select(f09_aparc, c('IDC', ends_with('_vol_f09')))
+
+f13_aparc <- readRDS('f13_freesurfer_v6_14oct2020_aparc_stats_pull23Nov2020.rds')
+f13_aparc <- rename(f13_aparc, 'IDC' = idc)
+f13_aparc <- dplyr::select(f13_aparc, c('IDC', ends_with('_vol_f13')))
+
+aparc_merged <- merge(f09_aparc, f13_aparc, by = 'IDC', all = T)
+
+full_df_cleaned <- merge(full_df_cleaned, aparc_merged, by = 'IDC', all.x = T)
+
+# Update: load and merge additional lateralized global brain data for sensitivity analysis 
+f09_aseg <- readRDS('f09_freesurfer_v6_09dec2016_aseg_stats_pull06june2017_v1.rds')
+f09_aseg <- rename(f09_aseg, 'IDC' = idc)
+f09_aseg <- dplyr::select(f09_aseg, c('IDC', 'Left_Cerebellum_Cortex_vol_f09', 'Right_Cerebellum_Cortex_vol_f09', 'Left_Thalamus_Proper_vol_f09', 'Right_Thalamus_Proper_vol_f09', 'Left_Hippocampus_vol_f09', 'Right_Hippocampus_vol_f09', 'Left_Amygdala_vol_f09', 'Right_Amygdala_vol_f09', 'Left_Lateral_Ventricle_vol_f09', 'Right_Lateral_Ventricle_vol_f09'))
+
+f09_lobes <- readRDS('f09_freesurfer_v6_09dec2016_lobes_stats_pull06june2017.rds')
+f09_lobes <- rename(f09_lobes, 'IDC' = idc)
+f09_lobes <- dplyr::select(f09_lobes, -c('lh_insula_vol_f09', 'rh_insula_vol_f09'))
+
+f09_global <- readRDS('f09_freesurfer_v6_09dec2016_tbv_stats_pull20june2017_v2.rds')
+f09_global <- rename(f09_global, 'IDC' = idc)
+f09_global <- dplyr::select(f09_global, c('IDC', 'lhCortexVol_f09', 'rhCortexVol_f09', 'lhCerebralWhiteMatterVol_f09', 'rhCerebralWhiteMatterVol_f09'))
+
+f09_df <- merge(f09_aseg, f09_lobes, by = 'IDC', all = T)
+f09_df <- merge(f09_df, f09_global, by = 'IDC', all = T)
+
+f13_aseg <- readRDS('f13_freesurfer_v6_14oct2020_aseg_stats_pull23Nov2020_v1.rds')
+f13_aseg <- rename(f13_aseg, 'IDC' = idc)
+f13_aseg <- dplyr::select(f13_aseg, c('IDC', 'Left_Cerebellum_Cortex_vol_f13', 'Right_Cerebellum_Cortex_vol_f13', 'Left_Thalamus_Proper_vol_f13', 'Right_Thalamus_Proper_vol_f13', 'Left_Hippocampus_vol_f13', 'Right_Hippocampus_vol_f13', 'Left_Amygdala_vol_f13', 'Right_Amygdala_vol_f13', 'Left_Lateral_Ventricle_vol_f13', 'Right_Lateral_Ventricle_vol_f13'))
+
+f13_lobes <- readRDS('f13_freesurfer_v6_29may2021_lobes_stats_pull23Nov2020.rds')
+f13_lobes <- rename(f13_lobes, 'IDC' = idc)
+f13_lobes <- dplyr::select(f13_lobes, -c('lh_insula_vol_f13', 'rh_insula_vol_f13'))
+
+f13_global <- readRDS("f13_freesurfer_v6_14oct2020_tbv_stats_pull23Nov2020_v2.rds")
+f13_global <- rename(f13_global, 'IDC' = idc)
+f13_global <- dplyr::select(f13_global, c('IDC', 'lhCortexVol_f13', 'rhCortexVol_f13', 'lhCerebralWhiteMatterVol_f13', 'rhCerebralWhiteMatterVol_f13'))
+
+f13_df <- merge(f13_aseg, f13_lobes, by = 'IDC', all = T)
+f13_df <- merge(f13_df, f13_global, by = 'IDC', all = T)
+
+f_combined_df <- merge(f09_df, f13_df, by = 'IDC', all = T)
+
+full_df_cleaned <- merge(full_df_cleaned, f_combined_df, by = 'IDC', all.x = T)
+
 # Transform to long dataset 
-df_long <- full_df_cleaned %>% pivot_longer(-c(IDC, IDM, MOTHER, AGE_M_v2, BMI_0, ETHNMv2,mdrink_updated,SMOKE_ALL,GSI, GENDER, GESTBIR, EDUCM, INCOME, PARITY, mat_inflam, im, pm, include, GestagePLg1, GestagePLg2, remark_cat_1, remark_cat_2, IL1ß_ObsConcg1, IL1ß_ObsConcg2, IL6_ObsConcg1, IL6_ObsConcg2, IL17A_ObsConcg1, IL17A_ObsConcg2, IFN.._ObsConcg1, IFN.._ObsConcg2, IL23_ObsConcg1, IL23_ObsConcg2, mia_index_t1, mia_index_t2, gestage_plasma_g1, gestage_plasma_g2, HsCRPmgL_g1, HsCRPmgL_g2, BatchDayg1, BatchDayg2,RackIDg1,RackIDg2, include), names_to = c('variable', 'timepoint'), values_to = c('value'), names_pattern = "(.*)_(.*)")
+df_long <- full_df_cleaned %>% pivot_longer(-c(IDC, IDM, MOTHER, AGE_M_v2, BMI_0, ETHNMv2,mdrink_updated,SMOKE_ALL,GSI, GENDER, GESTBIR, EDUCM, INCOME, PARITY, mat_inflam, im, pm, include, GestagePLg1, GestagePLg2, remark_cat_1, remark_cat_2, IL1ß_ObsConcg1, IL1ß_ObsConcg2, IL6_ObsConcg1, IL6_ObsConcg2, IL17A_ObsConcg1, IL17A_ObsConcg2, IFN.._ObsConcg1, IFN.._ObsConcg2, IL23_ObsConcg1, IL23_ObsConcg2, mia_index_t1, mia_index_t2, gestage_plasma_g1, gestage_plasma_g2, HsCRPmgL_g1, HsCRPmgL_g2, BatchDayg1, BatchDayg2,RackIDg1,RackIDg2, include, puberty_score), names_to = c('variable', 'timepoint'), values_to = c('value'), names_pattern = "(.*)_(.*)")
 
 df_long_ordered <- pivot_wider(df_long, names_from = c("variable"), values_from = c("value"))
 
@@ -630,7 +686,7 @@ df_long_ordered <- pivot_wider(df_long, names_from = c("variable"), values_from 
 miss_values_function(df_long_ordered)
 
 ## Impute missing data in covariates
-imputation_function(data = df_long_ordered,  method = "rf",exclude_imp_vars = c(1:3, 19:25, 27:33, 35, 37:101), exclude_predictors = c(1:3, 19, 27, 38:43, 46:101))
+imputation_function(data = df_long_ordered,  method = "rf",exclude_imp_vars = c(1:3, 19:25, 27:33, 35, 37:42, 44:217), exclude_predictors = c(1:3, 19, 27, 38:42, 46:217))
 
 ## Load imputed data and check convergence 
 imputed_df <- readRDS('imputedData_df_long_ordered.rds')
